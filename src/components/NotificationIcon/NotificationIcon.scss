@@ -1,0 +1,17 @@
+.rmf-notification-link {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 2.5rem;
+	width: 2.5rem;
+	margin-right: 0.5rem;
+	&:hover {
+		opacity: 0.5;
+	}
+}
+
+.rmf-notification-icon {
+	width: 2.5rem !important;
+	height: 2.5rem !important;
+	margin: 0;
+}

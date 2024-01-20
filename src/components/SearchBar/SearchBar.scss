@@ -1,0 +1,19 @@
+.search-bar {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	border: 0.15rem solid black;
+	border-radius: 0.5rem;
+	height: 2rem;
+	padding: 0.1rem 0.2rem;
+	svg {
+		padding-right: 0.2rem;
+	}
+	input {
+		border: none;
+		background-color: transparent;
+		height: 100%;
+		outline: none;
+		font-size: 1.2rem;
+	}
+}

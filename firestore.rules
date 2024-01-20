@@ -1,0 +1,199 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isFriend(request, friendId) {
+      return (
+        exists(/databases/$(database)/documents/friendships/$(request.auth.uid + '_' + friendId)) &&
+        get(/databases/$(database)/documents/friendships/$(request.auth.uid + '_' + friendId)).data.status == 'accepted'
+      ) || (
+        exists(/databases/$(database)/documents/friendships/$(friendId + '_' + request.auth.uid))
+        && get(/databases/$(database)/documents/friendships/$(friendId + '_' + request.auth.uid)).data.status == 'accepted'
+      );
+    }
+
+    // match /{document=**} {
+    //   allow read, write: if true;
+    // }
+    match /users/{userId} {
+      // Allow a user to create a document with their own UID if it doesn't exist, and can't set rmf to true
+      allow create: if isOwner(request, userId) 
+        && !exists(/databases/$(database)/documents/users/$(userId));
+        // && !request.resource.data.hasAny(['rmf']);
+
+      
+      // Only owner can udpate
+      allow update: if isOwner(request, userId);
+        // && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['rmf']);
+
+      // Anyone can read public fields
+      allow read: if true;
+
+      // Only friends and owner can read protected fields
+      match /protected {
+        allow read: if isFriend(request, resource.data.uid);
+      }
+
+      // Only owner can read private fields
+      match /private {
+        allow read: if isOwner(request, userId);
+      }
+
+    }
+    match /users/{document=**} {
+      // Anyone can read public fields
+      allow read: if true; 
+      allow create, update, delete: if false;
+
+      // Only friends and owner can read protected fields
+      match /protected {
+        allow read: if isFriend(request, resource.data.uid);
+      }
+
+      // Can't read private fields on group query
+      match /private {
+        allow read: if false;
+      }
+    }
+    match /friendships/{friendshipId} {
+      // TODO: cancel friend request if 
+      // friendshipId == senderId + '_'
+      // Allow a user to create a friendship if they are logged in
+      allow create: if isSignedIn(request) && request.resource.data.senderId == request.auth.uid &&
+        !exists(/databases/$(database)/documents/friendships/$(request.resource.data.senderId + '_' + request.resource.data.receiverId)) &&
+        !exists(/databases/$(database)/documents/friendships/$(request.resource.data.receiverId + '_' + request.resource.data.senderId)) &&
+        validFriendship(request.resource.data, friendshipId);
+      
+      // Allow a user to read a friendship if they are the sender or receiver
+      allow read: if isSignedIn(request) && (resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid);
+
+      // Allow public friendships to be read by anyone
+      allow read: if isSignedIn(request) && resource.data.status == 'accepted' && resource.data.public == true;
+
+      // Allow a user to update a friendship from pending if they are the receiver
+      allow update: if isSignedIn(request) && (resource.data.receiverId == request.auth.uid)
+        && (
+          resource.data.status == 'pending' || (
+            get(/databases/$(database)/documents/users/$(request.resource.data.receiverId)).data.rmf == true &&
+            resource.data.status == 'accepted'
+          )
+        )
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status is string
+        && request.resource.data.status in ['accepted', 'rejected'];
+      
+      // Allow a user to delete if:
+      // 1. They are the sender and the friendship is pending (cancel friend request)
+      // or 2. The friendship is accepted and they are the sender or receiver (unfriend)
+      allow delete: if isSignedIn(request) && (
+        resource.data.senderId == request.auth.uid && resource.data.status == 'pending' // Cancel friend request
+      ) || (
+        resource.data.status == 'accepted' && ( // Unfriend
+          resource.data.senderId == request.auth.uid || resource.data.receiverId == request.auth.uid 
+        )
+      );
+    }
+    match /notifications/{notification} {
+      // TODO: prevent duplicate notifications
+      // Allow a user to create a notification if they are logged in, the notification is valid, and one of the following is true:
+      // 1. It is a friend request and the friendship exists and is referenced correctly
+      allow create: if isSignedIn(request) &&
+        request.resource.data.type is string &&
+        request.resource.data.type in ['friendRequest', 'friendRequestAccepted', 'friendRequestDeclined', 'reviewAdded'] &&
+        request.resource.data.cleared is bool &&
+        request.resource.data.cleared == false && (
+          (request.resource.data.receiverId != request.auth.uid && request.resource.data.senderId == request.auth.uid && ((
+            request.resource.data.type == 'friendRequest' &&
+            exists(/databases/$(database)/documents/friendships/$(request.resource.data.senderId + '_' + request.resource.data.receiverId)) &&
+            get(/databases/$(database)/documents/friendships/$(request.resource.data.senderId + '_' + request.resource.data.receiverId)).data.status == 'pending'
+          ) || (
+            request.resource.data.type in ['friendRequestAccepted', 'friendRequestDeclined'] &&
+            exists(/databases/$(database)/documents/friendships/$(request.resource.data.receiverId + '_' + request.resource.data.senderId))
+          ) || (
+              request.resource.data.type == 'reviewAdded' &&
+              request.resource.data.resourceId is string &&
+              exists(/databases/$(database)/documents/reviews/$(request.resource.data.resourceId)) &&
+              get(/databases/$(database)/documents/reviews/$(request.resource.data.resourceId)).data.reviewerId == request.auth.uid
+            )
+          )) || (
+            request.resource.data.receiverId == request.auth.uid && 
+            request.resource.data.type == 'friendRequestAccepted' &&
+            exists(/databases/$(database)/documents/friendships/$(request.resource.data.receiverId + '_' + request.resource.data.senderId)) &&
+            get(/databases/$(database)/documents/users/$(request.resource.data.senderId)).data.rmf == true
+          )
+        );
+      
+      // Allow a user to read a notification if they are the receiver
+      allow read: if isSignedIn(request) && resource.data.receiverId == request.auth.uid;
+
+      // Allow a user to update a notification (mark as read) if they are the receiver
+      allow update: if isSignedIn(request) && resource.data.receiverId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['cleared'])
+        && request.resource.data.cleared is bool;
+    }
+    match /reviews/{review} {
+      // Allow create if they are reviewer, and are friends with reviewee
+      allow create: if isSignedIn(request) && request.resource.data.reviewerId == request.auth.uid
+        && isFriend(request, request.resource.data.revieweeId) 
+        && validReview(request.resource.data);
+      
+      // Reviewer can update rating and text
+      allow update: if isSignedIn(request) && request.resource.data.reviewerId == request.auth.uid 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'text'])
+        && validReview(request.resource.data);
+      
+      // Reviewee can update public
+      allow update: if isSignedIn(request) && request.resource.data.revieweeId == request.auth.uid 
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['public']);
+
+      // Reviewer can delete
+      allow delete: if isSignedIn(request) && request.resource.data.reviewerId == request.auth.uid;
+
+      allow read: if true;
+        // TODO: Better restrictions on read
+        // resource.data.public == true
+        // || isFriend(request, resource.data.revieweeId) 
+        // || isFriend(request, resource.data.reviewerId)
+        // || isOwner(request, resource.data.revieweeId)
+        // || isOwner(request, resource.data.reviewerId);
+    }
+    match /reviews/{document=**} {
+      // Anyone can read public fields
+      allow read: if true;
+        // resource.data.public == true
+        // || isFriend(request, resource.data.revieweeId) 
+        // || isFriend(request, resource.data.reviewerId)
+        // || isOwner(request, resource.data.revieweeId)
+        // || isOwner(request, resource.data.reviewerId);
+    }
+  }
+}
+
+function isSignedIn(request) {
+  return request.auth != null;
+}
+
+function isOwner(request, userId) {
+  return request.auth.uid == userId;
+}
+
+function validReview(review) {
+  return review.rating is int
+    && review.rating >= 0
+    && review.rating <= 5
+    && review.text is string
+    && review.text.size() <= 1000
+    && review.public is bool
+    && review.type is string
+    && review.type in ['event', 'historical', 'firstImpression'];
+}
+
+function validFriendship(friendship, friendshipId) {
+  return friendship.senderId is string
+    && friendship.receiverId is string
+    && friendship.senderId != friendship.receiverId
+    && friendship.senderId + '_' + friendship.receiverId == friendshipId 
+    && friendship.status is string
+    && friendship.status in ['pending', 'accepted', 'rejected']
+    && friendship.public is bool;
+}
