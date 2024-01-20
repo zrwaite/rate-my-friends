@@ -36,6 +36,11 @@ export const RatingStars = (props: {
 		fontSize: `${size/12}rem`,
 		color: '#78d5d7',
 	}
+	const starStyle = {
+		cursor: editable ? 'pointer' : undefined,
+		width: `${size/6.5}rem`,
+		height: `${size/7}rem`,
+	}
 	
 	return (
 		<div style={containerStyle}>
@@ -58,7 +63,7 @@ export const RatingStars = (props: {
 									if (r === rating) setRating(r - 1)
 									else setRating(r)
 								} : undefined}
-								style={{ cursor: editable ? 'pointer' : undefined }}
+								style={starStyle}
 							/>
 						)
 					})}

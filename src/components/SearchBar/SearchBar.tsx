@@ -6,6 +6,7 @@ import { searchFriends } from 'src/firebase/friends'
 import { Friend } from 'src/types/friend'
 import { useAccount } from 'src/hooks/account'
 import { useCache } from 'src/hooks/cache'
+import { useDisplay } from 'src/hooks/display'
 
 export const SearchBar = (props: {
 	initialValue?: string
@@ -17,19 +18,8 @@ export const SearchBar = (props: {
 	const { account } = useAccount()
 	const { cache } = useCache()
 	const [input, setInput] = useState(props.initialValue || q || '')
-	const [mobile, setMobile] = useState(false)
-
-	useEffect(() => {
-		const handleResize = (): void=> {
-			if (window.innerWidth < 32 * 16) setMobile(true)
-			else setMobile(false)
-		}
-		handleResize()
-		window.addEventListener('resize', handleResize)
-		return () => {
-			window.removeEventListener('resize', handleResize)
-		}
-	}, [])
+	const { width } = useDisplay()
+	const shrink = width < 32
 
 	useEffect(() => {
 		if (account === undefined) return
@@ -47,12 +37,12 @@ export const SearchBar = (props: {
 
 	return (
 		<div className={'search-bar'} style={props.style}>
-			<SearchIcon />
+			<SearchIcon onClick={() => search()} style={{ cursor: 'pointer' }} />
 			<input 
 				className='rmf-searchbar'
-				style={{ width: mobile ? '8rem' : '12rem' }}
+				style={{ width: shrink ? '8rem' : '12rem' }}
 				type='text' 
-				placeholder={mobile ? 'Find friends...' : 'Find your friends...'}
+				placeholder={shrink ? 'Find friends...' : 'Find your friends...'}
 				onChange={(e) => setInput(e.target.value)}
 				defaultValue={input}
 				onKeyDown={(e) => {

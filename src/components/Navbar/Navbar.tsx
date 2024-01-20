@@ -6,6 +6,7 @@ import './Navbar.scss'
 import { NotificationIcon } from '../NotificationIcon/NotificationIcon'
 import { MyProfileIcon } from '../MyProfileIcon'
 import { StyleType } from 'src/styles'
+import { useDisplay } from 'src/hooks/display'
 
 export const Navbar = (props: {
 	disableSearch?: boolean,
@@ -16,6 +17,9 @@ export const Navbar = (props: {
 	const { account } = useAccount()
 	const loaded = account !== undefined
 	const isLoggedIn = !!account
+	const { width } = useDisplay()
+	const mobile = width < 26
+
 	return (
 		<nav>
 			<div style={styles.navbarSide}>
@@ -31,10 +35,20 @@ export const Navbar = (props: {
 					<MyProfileIcon />
 				</>)}
 				{loaded && !isLoggedIn && (<>
-					{!props.disableLogin && <Link to="/login" className='rmf-button login-button'>
+					{!props.disableLogin && <Link to="/login" className={'rmf-button'} style={{
+						margin: '0 0.5rem',
+						width: mobile ? '4rem' : '5rem',
+						height: '2rem',
+						padding: '0.1rem 0',
+					}}>
 						Log In
 					</Link>}
-					{!props.disableSignup && <Link to='/register' className='rmf-button signup-button'>
+					{!props.disableSignup && (!mobile || props.disableLogin) && <Link to='/register' className={'rmf-button'} style={{
+						backgroundColor: 'var(--color-primary)',
+						width: '5.5rem',
+						height: '2rem',
+						padding: '0.1rem 0',
+					}}>
 						Sign Up
 					</Link>}
 				</>)}
