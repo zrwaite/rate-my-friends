@@ -50,7 +50,7 @@ export const FriendPage = (): JSX.Element => {
 		<>
 			<Navbar title={'Friend'} disableSearch/>
 			<div style={flexColumn}>
-				{friend && account && <div style={styles.container}>
+				{friend && <div style={styles.container}>
 					<h2 style={{ marginBottom: '1rem' }}>{getName(friend)}</h2>
 					<div style={flexRow}>
 						<ProfileIcon photoURL={friend.photoURL} style={{

@@ -30,7 +30,9 @@ export const HomePage = (): JSX.Element => {
 				{account === null && (
 					<div style={flexColumn}>
 						<p style={{ textAlign: 'center', margin: '0 0.5rem' }}>Find your friends on Rate My Friends to rate and review them!</p>
-						<img src='/preview.png' style={{ width: 'calc(100% - 2rem)', maxWidth: '30rem', border: '0.2rem solid #78d5d7', borderRadius: '0.5rem', margin: '1rem' }} />
+						<div style={{ backgroundColor: 'black', width: 'calc(100% - 2rem)', maxWidth: '30rem', border: '0.2rem solid #78d5d7', borderRadius: '1rem', margin: '1rem', overflow: 'hidden' }}>
+							<img src='/preview.png' style={{ width: '100%', opacity: '0.8' }} />
+						</div>
 						<p style={{ textAlign: 'center', margin: '0 0.5rem' }}>From first impressions, to events, to general reviews, see what your friends think of you and give your own perspective right back!</p>
 						<p style={{ textAlign: 'center', margin: '1rem 0.5rem 0' }}>Sign up now:</p>
 						<Button 

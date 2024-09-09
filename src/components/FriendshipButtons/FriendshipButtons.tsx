@@ -75,7 +75,10 @@ export const FriendshipButtons = ({ friend, setFriend }: {
 	}
 
 	return (<>
-		{!friend?.friendship && <Button onClick={trySendFriendRequest} variant='contained'>
+		{account === null && <Button onClick={() => navigate('/register')} variant='contained'>
+			Register to become friends
+		</Button>}
+		{!friend?.friendship && account && <Button onClick={trySendFriendRequest} variant='contained'>
 			Send Friend Request
 		</Button>}
 		{sentFriendRequestPending && <Button onClick={tryCancelFriendRequest} variant='contained'>
